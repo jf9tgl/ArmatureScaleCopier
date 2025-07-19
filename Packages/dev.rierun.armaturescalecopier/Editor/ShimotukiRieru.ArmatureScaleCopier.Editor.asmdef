@@ -1,6 +1,9 @@
 {
-    "name": "VRChatPackageTemplate.Editor",
-    "references": [],
+    "name": "ShimotukiRieru.ArmatureScaleCopier.Editor",
+    "rootNamespace": "dev.rierun.armaturescalecopier",
+    "references": [
+        "nadena.dev.modular-avatar.core"
+    ],
     "includePlatforms": [
         "Editor"
     ],
