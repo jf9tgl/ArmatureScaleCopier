@@ -304,7 +304,7 @@ namespace ShimotukiRieru.ArmatureScaleCopier
                 var compData = new ComponentData
                 {
                     typeName = component.GetType().AssemblyQualifiedName,
-                    serializedData = JsonUtility.ToJson(component)
+                    serializedData = ArmatureScaleCopierLogger.TryExecute(() => JsonUtility.ToJson(component), "{}", "コンポーネントのシリアライズ")
                 };
                 childData.componentData.Add(compData);
             }
