@@ -1,9 +1,7 @@
 {
     "name": "ShimotukiRieru.ArmatureScaleCopier.Editor",
     "rootNamespace": "dev.rierun.armaturescalecopier",
-    "references": [
-        "nadena.dev.modular-avatar.core"
-    ],
+    "references": [],
     "includePlatforms": [
         "Editor"
     ],

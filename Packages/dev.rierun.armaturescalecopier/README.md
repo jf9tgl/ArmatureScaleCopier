@@ -24,7 +24,6 @@ VRChat 向けの Unity Editor ツールです。Armature オブジェクトの�
 ## 動作確認済み
 
 -   Unity 2022.3 以降
--   Nadena Modular Avatar 1.8.0 以降
 -   VRChat Avatars SDK 3.1.0 以降
 -   VRChat SDK 3.1.0 以降
 

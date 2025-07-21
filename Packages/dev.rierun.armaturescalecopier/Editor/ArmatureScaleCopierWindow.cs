@@ -2,7 +2,6 @@ using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
 using System.Linq;
-using nadena.dev.modular_avatar.core;
 
 namespace ShimotukiRieru.ArmatureScaleCopier
 {
