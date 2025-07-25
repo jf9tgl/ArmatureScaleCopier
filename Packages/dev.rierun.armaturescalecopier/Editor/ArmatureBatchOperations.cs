@@ -45,7 +45,6 @@ namespace ShimotukiRieru.ArmatureScaleCopier
             // 検索範囲
             GUILayout.Label("検索範囲", EditorStyles.boldLabel);
             searchRoot = (GameObject)EditorGUILayout.ObjectField("検索対象オブジェクト", searchRoot, typeof(GameObject), true);
-            EditorGUILayout.HelpBox("指定しない場合は全シーンから検索します", MessageType.Info);
 
             // 検索対象が変更された場合の自動再検索
             if (autoFindArmatures && searchRoot != previousSearchRoot)
@@ -65,6 +64,18 @@ namespace ShimotukiRieru.ArmatureScaleCopier
             GUILayout.Label("設定", EditorStyles.boldLabel);
             autoFindArmatures = EditorGUILayout.Toggle("自動的にArmatureを検索", autoFindArmatures);
             includeInactive = EditorGUILayout.Toggle("非アクティブオブジェクトも含む", includeInactive);
+
+            GUILayout.Space(10);
+
+
+            if (GUILayout.Button("Armatureオブジェクトを再検索"))
+            {
+                FindAllArmatures();
+            }
+
+            GUILayout.Space(15);
+
+
             copyTransforms = EditorGUILayout.Toggle("Transform情報をコピー", copyTransforms);
             if (copyTransforms)
             {
@@ -75,9 +86,10 @@ namespace ShimotukiRieru.ArmatureScaleCopier
             copyMAComponents = EditorGUILayout.Toggle("MAコンポーネントをコピー", copyMAComponents);
             copyOtherComponents = EditorGUILayout.Toggle("その他のコンポーネントをコピー", copyOtherComponents);
 
-            if (GUILayout.Button("Armatureオブジェクトを再検索"))
+            if (copyOtherComponents)
             {
-                FindAllArmatures();
+                EditorGUILayout.HelpBox("その他のコンポーネントをコピーすると、不明瞭なエラーが発生して正しく動作しない可能性があります。\n" +
+                                        "このオプションは慎重に使用してください。", MessageType.Warning);
             }
 
             GUILayout.Space(15);
@@ -94,15 +106,20 @@ namespace ShimotukiRieru.ArmatureScaleCopier
             GUILayout.Space(15);
 
             // Armature一覧
-            string searchScopeText = searchRoot != null ? $"'{searchRoot.name}' 内の" : "シーン内の";
-            GUILayout.Label($"{searchScopeText}Armatureオブジェクト ({ArmatureObjects.Count}個)", EditorStyles.boldLabel);
+
+            if (searchRoot != null)
+            {
+                string searchScopeText = $"'{searchRoot.name}' 内の";
+                GUILayout.Label($"{searchScopeText}Armatureオブジェクト ({ArmatureObjects.Count}個)", EditorStyles.boldLabel);
+            }
 
             if (ArmatureObjects.Count == 0)
             {
-                string noResultMessage = searchRoot != null ?
-                    $"'{searchRoot.name}' 内にArmatureオブジェクトが見つかりません。" :
-                    "Armatureオブジェクトが見つかりません。";
-                EditorGUILayout.HelpBox(noResultMessage, MessageType.Info);
+                if (searchRoot != null)
+                {
+                    string noResultMessage = $"'{searchRoot.name}' 内にArmatureオブジェクトが見つかりません。";
+                    EditorGUILayout.HelpBox(noResultMessage, MessageType.Info);
+                }
             }
             else
             {
@@ -194,10 +211,7 @@ namespace ShimotukiRieru.ArmatureScaleCopier
             }
             else
             {
-                // 全シーンから検索
-                allObjects = includeInactive ?
-                    Resources.FindObjectsOfTypeAll<GameObject>() :
-                    FindObjectsOfType<GameObject>();
+                return;
             }
 
             foreach (var obj in allObjects)
@@ -300,6 +314,14 @@ namespace ShimotukiRieru.ArmatureScaleCopier
             foreach (var component in components)
             {
                 if (component == null || component is Transform) continue;
+
+                bool shouldCopy = false;
+                if (copyMAComponents && IsModularAvatarComponent(component))
+                    shouldCopy = true;
+                if (copyOtherComponents && !IsModularAvatarComponent(component))
+                    shouldCopy = true;
+
+                if (!shouldCopy) continue;
 
                 var compData = new ComponentData
                 {
@@ -417,47 +439,11 @@ namespace ShimotukiRieru.ArmatureScaleCopier
         }
 
         /// <summary>
-        /// 選択されたArmatureの子オブジェクトをすべて削除
+        /// ModularAvatarコンポーネントかどうかを判定
         /// </summary>
-        private void BatchClearChildren()
+        private bool IsModularAvatarComponent(Component component)
         {
-            var selectedArmatures = Selection.gameObjects.Where(obj =>
-                obj != null && obj.name.ToLower().Contains("Armature")).ToArray();
-
-            foreach (var Armature in selectedArmatures)
-            {
-                Undo.RegisterCompleteObjectUndo(Armature, "Clear Armature Children");
-
-                var children = new List<Transform>();
-                foreach (Transform child in Armature.transform)
-                {
-                    children.Add(child);
-                }
-
-                foreach (var child in children)
-                {
-                    Undo.DestroyObjectImmediate(child.gameObject);
-                }
-            }
-
-            Debug.Log($"{selectedArmatures.Length}個のArmatureの子オブジェクトをクリアしました。");
-        }
-
-        /// <summary>
-        /// 選択されたArmatureのスケールをリセット
-        /// </summary>
-        private void BatchResetScale()
-        {
-            var selectedArmatures = Selection.gameObjects.Where(obj =>
-                obj != null && obj.name.ToLower().Contains("Armature")).ToArray();
-
-            foreach (var Armature in selectedArmatures)
-            {
-                Undo.RegisterCompleteObjectUndo(Armature, "Reset Armature Scale");
-                Armature.transform.localScale = Vector3.one;
-            }
-
-            Debug.Log($"{selectedArmatures.Length}個のArmatureのスケールをリセットしました。");
+            return ModularAvatarHelper.IsModularAvatarComponent(component);
         }
     }
 }
