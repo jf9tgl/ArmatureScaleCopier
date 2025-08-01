@@ -23,10 +23,10 @@ namespace ShimotukiRieru.ArmatureScaleCopier
         private bool copyOtherComponents = false;
         private bool showTargetList = true;
 
-        [MenuItem("Tools/ArmatureScaleCopier/Armature Scale Copier")]
+        [MenuItem("Tools/ArmatureScaleCopier/Single Copier")]
         public static void ShowWindow()
         {
-            GetWindow<ArmatureScaleCopierWindow>("Armature Scale Copier");
+            GetWindow<ArmatureScaleCopierWindow>("Single Copier");
         }
 
         private void OnGUI()

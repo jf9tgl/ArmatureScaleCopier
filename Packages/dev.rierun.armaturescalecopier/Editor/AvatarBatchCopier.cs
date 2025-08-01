@@ -24,10 +24,10 @@ namespace ShimotukiRieru.ArmatureScaleCopier
         private bool copyMAComponents = true;
         private bool copyOtherComponents = false;
 
-        [MenuItem("Tools/ArmatureScaleCopier/Armature Batch Operations")]
+        [MenuItem("Tools/ArmatureScaleCopier/Avatar Batch Copier")]
         public static void ShowWindow()
         {
-            GetWindow<ArmatureBatchOperations>("Armature Batch Operations");
+            GetWindow<ArmatureBatchOperations>("Avatar Batch Copier");
         }
 
         private void OnEnable()
