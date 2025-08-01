@@ -23,10 +23,10 @@ namespace ShimotukiRieru.ArmatureScaleCopier
         private bool copyOtherComponents = false;
         private bool showTargetList = true;
 
-        [MenuItem("Tools/ArmatureScaleCopier/Armature Scale Copier")]
+        [MenuItem("Tools/ArmatureScaleCopier/Single Copier")]
         public static void ShowWindow()
         {
-            GetWindow<ArmatureScaleCopierWindow>("Armature Scale Copier");
+            GetWindow<ArmatureScaleCopierWindow>("Single Copier");
         }
 
         private void OnGUI()
@@ -113,7 +113,11 @@ namespace ShimotukiRieru.ArmatureScaleCopier
             copyMAComponents = EditorGUILayout.Toggle("ModularAvatarコンポーネントをコピー", copyMAComponents);
             copyOtherComponents = EditorGUILayout.Toggle("その他のコンポーネントをコピー", copyOtherComponents);
 
-
+            if (copyOtherComponents)
+            {
+                EditorGUILayout.HelpBox("その他のコンポーネントをコピーすると、不明瞭なエラーが発生して正しく動作しない可能性があります。\n" +
+                                        "このオプションは慎重に使用してください。", MessageType.Warning);
+            }
 
             GUILayout.Space(15);
 
