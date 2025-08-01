@@ -315,13 +315,13 @@ namespace ShimotukiRieru.ArmatureScaleCopier
             {
                 if (component == null || component is Transform) continue;
 
-                bool shouldCopy = false;
+                bool shouldCopyComponent = false;
                 if (copyMAComponents && IsModularAvatarComponent(component))
-                    shouldCopy = true;
+                    shouldCopyComponent = true;
                 if (copyOtherComponents && !IsModularAvatarComponent(component))
-                    shouldCopy = true;
+                    shouldCopyComponent = true;
 
-                if (!shouldCopy) continue;
+                if (!shouldCopyComponent) continue;
 
                 var compData = new ComponentData
                 {
