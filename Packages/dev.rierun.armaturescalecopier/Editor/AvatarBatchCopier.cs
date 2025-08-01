@@ -202,17 +202,16 @@ namespace ShimotukiRieru.ArmatureScaleCopier
 
             GameObject[] allObjects;
 
-            if (searchRoot != null)
+            if (searchRoot == null)
             {
-                // 指定オブジェクト内から検索
-                allObjects = searchRoot.GetComponentsInChildren<Transform>(includeInactive)
-                    .Select(t => t.gameObject)
-                    .ToArray();
-            }
-            else
-            {
+                // シーン全体で検索しないように。
                 return;
             }
+
+            // 指定オブジェクト内から検索
+            allObjects = searchRoot.GetComponentsInChildren<Transform>(includeInactive)
+                .Select(t => t.gameObject)
+                .ToArray();
 
             foreach (var obj in allObjects)
             {
