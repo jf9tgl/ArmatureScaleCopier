@@ -8,46 +8,66 @@ namespace ShimotukiRieru.ArmatureScaleCopier
     /// <summary>
     /// Armatureオブジェクトの子にあるコンポーネントとTransform情報をコピー・ペーストするエディターツール
     /// </summary>
-    public class ArmatureScaleCopierWindow : EditorWindow
+    public class SingleCopier : EditorWindow
     {
         private GameObject sourceArmature;
         private GameObject[] targetArmatures = new GameObject[0];
         private ArmatureData copiedData;
         private Vector2 scrollPosition;
         private Vector2 copiedDataScrollPosition;
+        private bool isOverrideExistingComponents = true; // 既存コンポーネントの値を上書きするか
         private bool copyTransforms = true;
         private bool copyTransformsScale = true;
         private bool copyTransformsPosition = false;
         private bool copyTransformsRotation = false;
-        private bool copyMAComponents = true;
-        private bool copyOtherComponents = false;
         private bool showTargetList = true;
+        private bool copyTransformsFoldout = true;
+        private List<ComponentInfo> componentList = new List<ComponentInfo>(); // コピー元に存在するコンポーネントタイプのリスト
+        private List<string> copyComponentList = new List<string>(); // コピー対象のコンポーネントのネームスペースのリスト
+        private List<bool> isFoldoutList = new List<bool>(); // 各カテゴリーの折りたたみ状態
 
         [MenuItem("Tools/ArmatureScaleCopier/Single Copier")]
         public static void ShowWindow()
         {
-            GetWindow<ArmatureScaleCopierWindow>("Single Copier");
+            GetWindow<SingleCopier>("Single Copier");
+        }
+
+        private void OnEnable()
+        {
+            FindComponentsInSourceArmature();
         }
 
         private void OnGUI()
         {
             scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition);
 
-
-
             // ソースArmature選択
             GUILayout.Label("コピー元 (Source Armature):", EditorStyles.boldLabel);
-            sourceArmature = (GameObject)EditorGUILayout.ObjectField(sourceArmature, typeof(GameObject), true);
+            var newSourceArmature = (GameObject)EditorGUILayout.ObjectField(sourceArmature, typeof(GameObject), true);
+
+            if (newSourceArmature != sourceArmature)
+            {
+                sourceArmature = newSourceArmature;
+                FindComponentsInSourceArmature();
+            }
 
             if (sourceArmature != null && !IsValidArmature(sourceArmature))
             {
-                EditorGUILayout.HelpBox("選択されたオブジェクトは「Armature」という名前ではありません。", MessageType.Warning);
+                EditorGUILayout.HelpBox("選択されたオブジェクトは有効なArmatureではありません。", MessageType.Warning);
             }
 
             GUILayout.Space(10);
 
+            // 設定
+            GUILayout.Label("設定", EditorStyles.boldLabel);
+            EditorGUI.indentLevel++;
+            isOverrideExistingComponents = EditorGUILayout.ToggleLeft("既存コンポーネントの値を上書き", isOverrideExistingComponents);
+            EditorGUI.indentLevel--;
+
+            GUILayout.Space(10);
+
             // ターゲットArmature選択
-            GUILayout.Label("コピー先 (Target Armatures):", EditorStyles.boldLabel);
+            GUILayout.Label("ペースト先 (Target Armatures):", EditorStyles.boldLabel);
 
             showTargetList = EditorGUILayout.Foldout(showTargetList, $"ターゲットリスト ({targetArmatures.Length} 個)");
 
@@ -71,6 +91,8 @@ namespace ShimotukiRieru.ArmatureScaleCopier
                 // 各ターゲットArmatureの設定
                 for (int i = 0; i < targetArmatures.Length; i++)
                 {
+                    if (i >= targetArmatures.Length) break; // 安全性チェック
+
                     EditorGUILayout.BeginHorizontal();
                     targetArmatures[i] = (GameObject)EditorGUILayout.ObjectField($"Target {i + 1}", targetArmatures[i], typeof(GameObject), true);
 
@@ -87,9 +109,9 @@ namespace ShimotukiRieru.ArmatureScaleCopier
                     }
                     EditorGUILayout.EndHorizontal();
 
-                    if (targetArmatures[i] != null && !IsValidArmature(targetArmatures[i]))
+                    if (i < targetArmatures.Length && targetArmatures[i] != null && !IsValidArmature(targetArmatures[i]))
                     {
-                        EditorGUILayout.HelpBox($"Target {i + 1}: 選択されたオブジェクトは「Armature」という名前ではありません。", MessageType.Warning);
+                        EditorGUILayout.HelpBox($"Target {i + 1}: 選択されたオブジェクトは有効なArmatureではありません。", MessageType.Warning);
                     }
                 }
 
@@ -98,25 +120,77 @@ namespace ShimotukiRieru.ArmatureScaleCopier
 
             GUILayout.Space(10);
 
+            // コピーするコンポーネントの設定
+            GUILayout.Label("コピーするコンポーネント", EditorStyles.boldLabel);
 
-            copyTransforms = EditorGUILayout.Toggle("Transform情報をコピー", copyTransforms);
-
-            if (copyTransforms)
+            copyTransformsFoldout = CopierHelper.Foldout("Transform", copyTransformsFoldout);
+            if (copyTransformsFoldout)
             {
-                EditorGUI.indentLevel++;
-                copyTransformsScale = EditorGUILayout.Toggle("スケールをコピー", copyTransformsScale);
-                copyTransformsPosition = EditorGUILayout.Toggle("位置をコピー", copyTransformsPosition);
-                copyTransformsRotation = EditorGUILayout.Toggle("回転をコピー", copyTransformsRotation);
-                EditorGUI.indentLevel--;
+                copyTransforms = EditorGUILayout.ToggleLeft("Transform情報をコピー", copyTransforms);
+
+                if (copyTransforms)
+                {
+                    EditorGUI.indentLevel++;
+                    copyTransformsScale = EditorGUILayout.ToggleLeft("スケールをコピー", copyTransformsScale);
+                    copyTransformsPosition = EditorGUILayout.ToggleLeft("位置をコピー", copyTransformsPosition);
+                    copyTransformsRotation = EditorGUILayout.ToggleLeft("回転をコピー", copyTransformsRotation);
+                    EditorGUI.indentLevel--;
+                }
             }
 
-            copyMAComponents = EditorGUILayout.Toggle("ModularAvatarコンポーネントをコピー", copyMAComponents);
-            copyOtherComponents = EditorGUILayout.Toggle("その他のコンポーネントをコピー", copyOtherComponents);
+            GUILayout.Space(10);
 
-            if (copyOtherComponents)
+            // カテゴリー別にコンポーネントをグループ化
+            var categorizedComponents = componentList.GroupBy(info => info.Category)
+                .OrderBy(group => group.Key)
+                .ToList();
+
+            // isFoldoutListのサイズを調整
+            while (isFoldoutList.Count < categorizedComponents.Count)
             {
-                EditorGUILayout.HelpBox("その他のコンポーネントをコピーすると、不明瞭なエラーが発生して正しく動作しない可能性があります。\n" +
-                                        "このオプションは慎重に使用してください。", MessageType.Warning);
+                isFoldoutList.Add(true);
+            }
+
+            for (int index = 0; index < categorizedComponents.Count; index++)
+            {
+                var category = categorizedComponents[index];
+                // カテゴリーヘッダー
+                bool isFoldout = isFoldoutList[index];
+                GUILayout.Space(5);
+                isFoldout = CopierHelper.Foldout(CopierHelper.GetComponentCategoryName(category.Key), isFoldout);
+                isFoldoutList[index] = isFoldout; // 更新
+                if (isFoldout)
+                {
+                    // カテゴリー内のコンポーネント
+                    foreach (var info in category.OrderBy(c => c.ComponentName))
+                    {
+                        bool isSelected = copyComponentList.Contains(info.ComponentNameSpace + "." + info.ComponentName);
+                        // コンポーネントのアイコンを表示
+                        Texture icon = info.ComponentIcon;
+                        if (icon == null)
+                        {
+                            // アイコンがない場合はデフォルトのアイコンを使用
+                            icon = EditorGUIUtility.IconContent("d_UnityEditor.SceneView").image;
+                        }
+
+                        bool newSelected = EditorGUILayout.ToggleLeft(
+                            new GUIContent(info.ComponentDisplayName, icon),
+                             isSelected
+                        );
+
+                        if (newSelected != isSelected)
+                        {
+                            if (newSelected)
+                            {
+                                copyComponentList.Add(info.ComponentNameSpace + "." + info.ComponentName);
+                            }
+                            else
+                            {
+                                copyComponentList.Remove(info.ComponentNameSpace + "." + info.ComponentName);
+                            }
+                        }
+                    }
+                }
             }
 
             GUILayout.Space(15);
@@ -171,22 +245,62 @@ namespace ShimotukiRieru.ArmatureScaleCopier
         }
 
         /// <summary>
+        /// ソースArmatureに存在するコンポーネントのリストを検索
+        /// </summary>
+        private void FindComponentsInSourceArmature()
+        {
+            componentList.Clear();
+            // カテゴリー数が変わった場合のためにisFoldoutListもリセット
+            isFoldoutList.Clear();
+
+            if (sourceArmature == null) return;
+
+            // ソースArmatureのすべてのコンポーネントを取得
+            var components = sourceArmature.GetComponentsInChildren<Component>(true);
+            foreach (var comp in components)
+            {
+                // コンポーネントが無効またはTransformの場合はスキップ
+                if (comp == null || comp is Transform) continue;
+                // リスト内に同じコンポーネントが存在しない場合のみ追加
+                var componentInfo = new ComponentInfo(comp);
+                if (!componentList.Any(c => c.ComponentNameSpace == componentInfo.ComponentNameSpace && c.ComponentName == componentInfo.ComponentName))
+                {
+                    componentList.Add(componentInfo);
+                }
+            }
+        }
+
+        /// <summary>
         /// Armatureの子オブジェクトのデータをコピー（再帰処理）
         /// </summary>
         private void CopyArmatureData()
         {
-            if (sourceArmature == null) return;
-
-            copiedData = new ArmatureData();
-
-            foreach (Transform child in sourceArmature.transform)
+            if (sourceArmature == null)
             {
-                var childData = CopyChildObjectDataRecursive(child);
-                copiedData.childrenData.Add(childData);
+                EditorUtility.DisplayDialog("エラー", "コピー元のArmatureが設定されていません。", "OK");
+                return;
             }
 
-            int totalObjectCount = CountTotalObjects(copiedData.childrenData);
-            ArmatureScaleCopierLogger.Log($"Armature '{sourceArmature.name}' のデータをコピーしました。総オブジェクト数: {totalObjectCount}");
+            try
+            {
+                copiedData = new ArmatureData();
+
+                foreach (Transform child in sourceArmature.transform)
+                {
+                    var childData = CopyChildObjectDataRecursive(child);
+                    copiedData.childrenData.Add(childData);
+                }
+
+                int totalObjectCount = CountTotalObjects(copiedData.childrenData);
+                string message = $"Armature '{sourceArmature.name}' のデータをコピーしました。総オブジェクト数: {totalObjectCount}";
+                ArmatureScaleCopierLogger.Log(message);
+                EditorUtility.DisplayDialog("完了", message, "OK");
+            }
+            catch (System.Exception e)
+            {
+                ArmatureScaleCopierLogger.LogException(e, "コピー処理中");
+                EditorUtility.DisplayDialog("エラー", $"コピー処理中にエラーが発生しました: {e.Message}", "OK");
+            }
         }
 
         /// <summary>
@@ -212,10 +326,10 @@ namespace ShimotukiRieru.ArmatureScaleCopier
 
                 bool shouldCopy = false;
 
-                if (copyMAComponents && IsModularAvatarComponent(component))
-                    shouldCopy = true;
-                else if (copyOtherComponents && !IsModularAvatarComponent(component))
-                    shouldCopy = true;
+                if (copyComponentList.Contains(component.GetType().Namespace + "." + component.GetType().Name))
+                {
+                    shouldCopy = true; // コピー対象のコンポーネント
+                }
 
                 if (shouldCopy)
                 {
@@ -261,28 +375,79 @@ namespace ShimotukiRieru.ArmatureScaleCopier
         /// </summary>
         private void PasteArmatureData()
         {
-            if (copiedData == null) return;
+            if (copiedData == null)
+            {
+                EditorUtility.DisplayDialog("エラー", "コピーされたデータがありません。まず「Copy Armature Data」を実行してください。", "OK");
+                return;
+            }
 
             var validTargets = targetArmatures.Where(t => t != null && IsValidArmature(t)).ToArray();
             if (validTargets.Length == 0)
             {
-                Debug.LogWarning("有効なターゲットArmatureが見つかりません。");
+                EditorUtility.DisplayDialog("エラー", "有効なターゲットArmatureが見つかりません。", "OK");
                 return;
             }
 
-            foreach (var target in validTargets)
+            // コピー対象のコンポーネントが選択されているかチェック
+            if (copyComponentList.Count == 0 && !(copyTransforms && (copyTransformsScale || copyTransformsPosition || copyTransformsRotation)))
             {
-                Undo.RegisterCompleteObjectUndo(target, "Paste Armature Data");
-
-                foreach (var childData in copiedData.childrenData)
-                {
-                    PasteChildObjectDataRecursive(childData, target.transform);
-                }
-
-                ArmatureScaleCopierLogger.Log($"Armature '{target.name}' にデータをペーストしました。");
+                EditorUtility.DisplayDialog("警告", "コピーする項目が選択されていません。Transform情報またはコンポーネントを選択してください。", "OK");
+                return;
             }
 
-            ArmatureScaleCopierLogger.Log($"合計 {validTargets.Length} 個のArmatureにデータをペーストしました。");
+            // 確認ダイアログ
+            string transformInfo = "";
+            if (copyTransforms)
+            {
+                var transformParts = new List<string>();
+                if (copyTransformsPosition) transformParts.Add("位置");
+                if (copyTransformsRotation) transformParts.Add("回転");
+                if (copyTransformsScale) transformParts.Add("スケール");
+                transformInfo = transformParts.Count > 0 ? string.Join(", ", transformParts) : "なし";
+            }
+            else
+            {
+                transformInfo = "コピーしない";
+            }
+
+            bool proceed = EditorUtility.DisplayDialog(
+                "確認",
+                $"{validTargets.Length}個のArmatureにデータをペーストしますか？\n\n" +
+                $"・Transform情報: {transformInfo}\n" +
+                $"・コンポーネント数: {copyComponentList.Count}個\n" +
+                $"・既存コンポーネントの上書き: {(isOverrideExistingComponents ? "はい" : "いいえ")}",
+                "実行", "キャンセル");
+
+            if (!proceed) return;
+
+            try
+            {
+                int successCount = 0;
+                foreach (var target in validTargets)
+                {
+                    try
+                    {
+                        Undo.RegisterCompleteObjectUndo(target, "Paste Armature Data");
+
+                        foreach (var childData in copiedData.childrenData)
+                        {
+                            PasteChildObjectDataRecursive(childData, target.transform);
+                        }
+
+                        ArmatureScaleCopierLogger.Log($"Armature '{target.name}' にデータをペーストしました。");
+                        successCount++;
+                    }
+                    catch (System.Exception ex)
+                    {
+                        ArmatureScaleCopierLogger.LogException(ex, $"'{target.name}'への適用中");
+                    }
+                }
+            }
+            catch (System.Exception e)
+            {
+                ArmatureScaleCopierLogger.LogException(e, "ペースト処理中");
+                EditorUtility.DisplayDialog("エラー", $"ペースト処理中にエラーが発生しました: {e.Message}", "OK");
+            }
         }
 
         /// <summary>
@@ -321,6 +486,8 @@ namespace ShimotukiRieru.ArmatureScaleCopier
                         var existingComponent = targetChild.GetComponent(componentType);
                         if (existingComponent != null)
                         {
+                            if (!isOverrideExistingComponents)
+                                continue; // 既存コンポーネントの値を上書きしない場合はスキップ
                             Undo.RegisterCompleteObjectUndo(existingComponent, "Update Component");
                             JsonUtility.FromJsonOverwrite(compData.serializedData, existingComponent);
                         }
@@ -331,10 +498,14 @@ namespace ShimotukiRieru.ArmatureScaleCopier
                             JsonUtility.FromJsonOverwrite(compData.serializedData, newComponent);
                         }
                     }
+                    else
+                    {
+                        ArmatureScaleCopierLogger.LogWarning($"コンポーネント型 '{compData.typeName}' が見つかりませんでした。");
+                    }
                 }
                 catch (System.Exception e)
                 {
-                    Debug.LogWarning($"コンポーネント {compData.typeName} の適用に失敗しました: {e.Message}");
+                    ArmatureScaleCopierLogger.LogException(e, $"コンポーネント {compData.typeName} の適用中");
                 }
             }
 
@@ -376,7 +547,7 @@ namespace ShimotukiRieru.ArmatureScaleCopier
         /// </summary>
         private bool IsModularAvatarComponent(Component component)
         {
-            return ModularAvatarHelper.IsModularAvatarComponent(component);
+            return CopierHelper.IsModularAvatarComponent(component);
         }
     }
 

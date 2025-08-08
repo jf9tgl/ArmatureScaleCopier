@@ -6,9 +6,9 @@ using System.Reflection;
 namespace ShimotukiRieru.ArmatureScaleCopier
 {
     /// <summary>
-    /// ModularAvatarコンポーネントの検出と処理を行うヘルパークラス
+    /// いろんな処理をするヘルパークラス
     /// </summary>
-    public static class ModularAvatarHelper
+    public static class CopierHelper
     {
         private static bool? _isMAAvailable;
         private static Type[] _maComponentTypes;
@@ -108,6 +108,30 @@ namespace ShimotukiRieru.ArmatureScaleCopier
         }
 
         /// <summary>
+        /// 指定されたコンポーネントがVRChatのコンポーネントかどうかを判定
+        /// </summary>
+        public static bool IsVRChatComponent(Component component)
+        {
+            if (component == null)
+                return false;
+
+            var componentType = component.GetType();
+            return componentType.Namespace?.StartsWith("VRC") == true;
+        }
+
+        /// <summary>
+        /// 指定されたコンポーネントがUnityの標準コンポーネントかどうかを判定
+        /// </summary>
+        public static bool IsUnityStandardComponent(Component component)
+        {
+            if (component == null)
+                return false;
+
+            var componentType = component.GetType();
+            return componentType.Namespace?.StartsWith("UnityEngine") == true;
+        }
+
+        /// <summary>
         /// コンポーネントの種類を取得
         /// </summary>
         public static ComponentCategory GetComponentCategory(Component component)
@@ -121,16 +145,32 @@ namespace ShimotukiRieru.ArmatureScaleCopier
             if (IsModularAvatarComponent(component))
                 return ComponentCategory.ModularAvatar;
 
-            // 一般的なUnityコンポーネント
-            var componentType = component.GetType();
-            if (componentType.Namespace?.StartsWith("UnityEngine") == true)
-                return ComponentCategory.Unity;
-
-            // VRChatコンポーネント
-            if (componentType.Namespace?.StartsWith("VRC") == true)
+            if (IsVRChatComponent(component))
                 return ComponentCategory.VRChat;
 
+            if (IsUnityStandardComponent(component))
+                return ComponentCategory.Unity;
+
             return ComponentCategory.Other;
+        }
+
+        public static string GetComponentCategoryName(ComponentCategory category)
+        {
+            switch (category)
+            {
+                case ComponentCategory.Transform:
+                    return "Transform";
+                case ComponentCategory.ModularAvatar:
+                    return "ModularAvatar";
+                case ComponentCategory.Unity:
+                    return "Unity Standard";
+                case ComponentCategory.VRChat:
+                    return "VRChat";
+                case ComponentCategory.Other:
+                    return "Other";
+                default:
+                    return "Unknown";
+            }
         }
 
         /// <summary>
@@ -152,6 +192,35 @@ namespace ShimotukiRieru.ArmatureScaleCopier
                 return false;
 
             return true;
+        }
+
+
+        public static bool Foldout(string title, bool display)
+        {
+            var style = new GUIStyle("ShurikenModuleTitle");
+            style.font = new GUIStyle(EditorStyles.label).font;
+            style.border = new RectOffset(15, 7, 4, 4);
+            style.fixedHeight = 22;
+            style.contentOffset = new Vector2(20f, -2f);
+
+            var rect = GUILayoutUtility.GetRect(16f, 22f, style);
+            GUI.Box(rect, title, style);
+
+            var e = Event.current;
+
+            var toggleRect = new Rect(rect.x + 4f, rect.y + 2f, 13f, 13f);
+            if (e.type == EventType.Repaint)
+            {
+                EditorStyles.foldout.Draw(toggleRect, false, false, display, false);
+            }
+
+            if (e.type == EventType.MouseDown && rect.Contains(e.mousePosition))
+            {
+                display = !display;
+                e.Use();
+            }
+
+            return display;
         }
     }
 
@@ -275,4 +344,42 @@ namespace ShimotukiRieru.ArmatureScaleCopier
             return component != null && !(component is Transform);
         }
     }
+
+    /// <summary>
+    /// コンポーネントの情報を保持するクラス
+    /// </summary>
+    public class ComponentInfo
+    {
+        public string ComponentNameSpace { get; private set; }
+        public string ComponentName { get; private set; }
+        public string ComponentDisplayName
+        {
+            get
+            {
+                var _componentDisplayName = string.Empty;
+                if (string.IsNullOrEmpty(_componentDisplayName))
+                {
+                    _componentDisplayName = ObjectNames.NicifyVariableName(ComponentType.Name);
+                }
+                return _componentDisplayName;
+            }
+        }
+        public Type ComponentType { get; private set; }
+        public ComponentCategory Category { get; private set; }
+        public Texture ComponentIcon { get; private set; }
+        public ComponentInfo(Component component)
+        {
+            if (component == null)
+                throw new ArgumentNullException(nameof(component));
+
+            ComponentType = component.GetType();
+            ComponentNameSpace = ComponentType.Namespace ?? "Unknown";
+            ComponentName = ComponentType.Name;
+            Category = CopierHelper.GetComponentCategory(component);
+            ComponentIcon = AssetPreview.GetMiniThumbnail(component);
+        }
+    }
+
+
+
 }

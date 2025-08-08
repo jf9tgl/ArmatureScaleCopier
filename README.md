@@ -15,14 +15,14 @@ VRChat 向けの Unity Editor ツールです。Armature オブジェクトの�
 
 アバターの体型をいじったから、衣装側にも同じ調整を適用したい場合などに便利です。
 
-1. Window → ShimotukiRieru → Avatar Batch Copier でツールウィンドウを開く
+1. Tools → ArmatureScaleCopier → Avatar Batch Copier でツールウィンドウを開く
 2. 検索範囲にアバターをドラッグ＆ドロップ
 3. ペーストさせたい Armature オブジェクトをチェックボックスで選択
 4. コピーを実行
 
 ### Single Copier
 
-1. Window → ShimotukiRieru → Single Copier でツールウィンドウを開く
+1. Tools → ArmatureScaleCopier → Single Copier でツールウィンドウを開く
 2. コピー元の Armature オブジェクトを選択
 3. 「Copy Armature Data」ボタンでデータをコピー
 4. コピー先の Armature オブジェクトを選択
